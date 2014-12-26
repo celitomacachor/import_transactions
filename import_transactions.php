@@ -55,7 +55,7 @@ ini_set("display_errors", "on");
 //Ensure that your company has no important information in it as these will be deleted.
 //Warning: Most records will be deleted if '$yes' set to true. Default must stay on false for normal operation.
 //Recommended: Remove this next line after you are happy with testing.
-all_delete($yes=false);
+all_delete($yes=true);
 
 $js = '';
 if ($use_popup_windows) {$js .= get_js_open_window(800, 500);}
@@ -100,7 +100,7 @@ if ((isset($_POST['type'])))
      begin_transaction();
      $curEntryId=last_transno($type)+1;
      $line = 0;
-     $trial=!null;
+     $trial=false;
      $description = "";
      $i=0;
      $total_debit_positive=0;
@@ -128,7 +128,7 @@ if ((isset($_POST['type'])))
             if  (($type == ST_BANKPAYMENT) && ($stateformat!=null))
            //All amounts to the right of amt are ignored since only considering payments which are to the left of deposits on a bank statement.     
            {
-               list($reference, $date, $memo, $amt, $ignore, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id) = $data;
+               list($reference, $date, $memo, $amt, $ignore, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id,$BranchNo) = $data;
                if ((($ignore == "")||($ignore == null)) && ($amt > 0.01 )){} else 
                  {
                    display_notification_centered(_("Ignoring deposit. Use same csv under deposit processing. (line $line in import file '{$_FILES['imp']['name']}')")); 
@@ -140,7 +140,7 @@ if ((isset($_POST['type'])))
            if (($type == ST_BANKDEPOSIT) && ($stateformat!=null))
            {
            //All amounts to the left of amt are ignored since only considering deposits which are to the left of payments on a bank statement.     
-               list($reference, $date, $memo, $ignore, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id) = $data;
+               list($reference, $date, $memo, $ignore, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id,$BranchNo) = $data;
                if ((($ignore == "")||($ignore == null)) && ($amt > 0.01 )){} else 
                    {
                     display_notification_centered(_("Ignoring payment. Use same csv under payment processing.(line $line in import file '{$_FILES['imp']['name']}')"));  
@@ -150,7 +150,7 @@ if ((isset($_POST['type'])))
                    } 
            }
            if ((($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT)) && ($stateformat==null))
-           list($reference, $date, $memo, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id) = $data;
+           list($reference, $date, $memo, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id, $BranchNo) = $data;
            
         }
          if ($prev_ref <> $reference) {     
@@ -205,8 +205,7 @@ if ((isset($_POST['type'])))
        {
           if (check_tax_appropriate($code_id, $taxtype, $line) == true)
           {
-           bank_inclusive_tax($type, $reference, $date, $bank_account, $bank_account_gl_code, $line, $curEntryId, $code_id, $dim1, $dim2, $memo, $amt, $taxtype,$person_type_id,$person_id);
-           
+           bank_inclusive_tax($type, $reference, $date, $bank_account, $bank_account_gl_code, $line, $curEntryId, $code_id, $dim1, $dim2, $memo, $amt, $taxtype,$person_type_id,$person_id, $BranchNo);
           }
           else 
          {
@@ -240,20 +239,24 @@ if ((isset($_POST['type'])))
          $errCnt = $errCnt + 1;
       }    //
 // Commit import to database
- if ((isset($_POST['trial'])) && ($_POST['trial']==null)){     
- $trial = null;}
- if (isset($_POST['trial']) && ($_POST['trial']!=null)) {$trial = !null;} 
+ if (isset($_POST['trial'])){     
+ $trial = $_POST['trial'];}
+  
  if ($type == ST_JOURNAL){$typeString = "Journals";}                
  elseif ($type == ST_BANKDEPOSIT){$typeString = "Deposits";}
  elseif ($type == ST_BANKPAYMENT){$typeString = "Payments";}
-if (($errCnt==0) && ($trial == null))
+ 
+ display_notification("$trial"); 
+
+ if (($errCnt==0) && ($trial == false))
  {if ($entryCount > 0){commit_transaction();display_notification_centered(_("$entryCount $typeString have been imported."));}
   else display_error(_("Import file contained no $typeString."));}
-if (($errCnt==0) && ($trial == !null))
+  
+if (($errCnt==0) && ($trial == true))
  {display_notification_centered(_("$entryCount $typeString would have been successful if imported. Uncheck Trial check before importing."));}
-if (($errCnt>0) && ($trial == !null) && $displayed_at_least_once)
+if (($errCnt>0) && ($trial == true) && $displayed_at_least_once)
  {display_notification_centered(_("$errCnt error(s) detected. Correct before importing."));}
- if (($errCnt>0) && ($trial == null) && $displayed_at_least_once)
+ if (($errCnt>0) && ($trial == true) && $displayed_at_least_once)
  {display_notification_centered(_("$errCnt error(s) detected. Correct before importing."));}   
  $errCnt =0;
    
