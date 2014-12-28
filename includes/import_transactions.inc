@@ -109,12 +109,12 @@ function bank_inclusive_tax($type, $reference, $date, $bank_account, $bank_accou
                 add_audit_trail($type, $curEntryId, $date);
                 display_notification_centered(_("Added tax to table 'gl_trans Credit:': $curEntryId, $date, $salestaxaccount, $dim1, $dim2, -$taxamt, $memo (line $line in import file '{$_FILES['imp']['name']}')"));    
       
-                if ((customer_exist($person_id)) && ($person_type_id=2))
+                if ((customer_exist($person_id)) && ($person_type_id==2))
                    {
                       display_notification_centered(_("No tax types should be used with customer deposits since tax is accounted for at source document entry - eg. Invoice'. Use customer id with a control account only. (line $line in import file '{$_FILES['imp']['name']}')"));    
                    }
               
-                if ((supplier_exist($person_id)) && ($person_type_id=1))
+                if ((supplier_exist($person_id)) && ($person_type_id==1))
                    {
                       display_notification_centered(_("No tax types should be used with supplier payments since tax is accounted for at source document entry - eg. Invoice'. Use supplier id with a control account only.(line $line in import file '{$_FILES['imp']['name']}')"));    
                    }  
@@ -126,13 +126,13 @@ function bank_inclusive_tax($type, $reference, $date, $bank_account, $bank_accou
               add_audit_trail($type, $curEntryId, $date);
               display_notification_centered(_("Added to table 'gl_trans Credit:': $curEntryId, $date, $code, $dim1, $dim2, -$inclusive_amt, $memo (line $line in import file '{$_FILES['imp']['name']}')"));    
               
-              if ((customer_exist($person_id)) && ($person_type_id=2))
+              if ((customer_exist($person_id)) && ($person_type_id==2))
               {
                   write_customer_trans(ST_BANKDEPOSIT, $curEntryId, $person_id, $BranchNo, $date, $reference, $inclusive_amt);
                   display_notification_centered(_("Added to table 'debtor_trans Credit: Payment from customer': $inclusive_amt (line $line in import file '{$_FILES['imp']['name']}')"));    
               }
               
-              if ((supplier_exist($person_id)) && ($person_type_id=1))
+              if ((supplier_exist($person_id)) && ($person_type_id==1))
               {
                   write_supp_trans(ST_BANKDEPOSIT, $curEntryId, $person_id, $date, $due_date="", $reference, $supp_reference="", $inclusive_amt, $amount_tax=0, $discount=0);
                   display_notification_centered(_("Added to table 'supp_trans Credit: Our over-payment amount reimbursed': $inclusive_amt (line $line in import file '{$_FILES['imp']['name']}')"));    
@@ -162,12 +162,12 @@ function bank_inclusive_tax($type, $reference, $date, $bank_account, $bank_accou
                 add_audit_trail($type, $curEntryId, $date);
                 display_notification_centered(_("Added tax to table 'gl_trans' Debit: $curEntryId, $date, $purchasetaxaccount, $dim1, $dim2, $taxamt, $memo (line $line in import file '{$_FILES['imp']['name']}')"));                                        
                 
-                if ((customer_exist($person_id)) && ($person_type_id=2))
+                if ((customer_exist($person_id)) && ($person_type_id==2))
                    {
                       display_notification_centered(_("No tax types should be used with customer deposits since tax is accounted for at source document entry - Invoice'. Use customer id with a control account only. (line $line in import file '{$_FILES['imp']['name']}')"));    
                    }
               
-                if ((supplier_exist($person_id)) && ($person_type_id=1))
+                if ((supplier_exist($person_id)) && ($person_type_id==1))
                    {
                       display_notification_centered(_("No tax types should be used with supplier payments since tax is accounted for at source document entry - Invoice'. Use supplier id with a control account only.(line $line in import file '{$_FILES['imp']['name']}')"));    
                    }  
@@ -178,16 +178,16 @@ function bank_inclusive_tax($type, $reference, $date, $bank_account, $bank_accou
              add_audit_trail($type, $curEntryId, $date);
              display_notification_centered(_("Added to table 'gl_trans' Debit: $curEntryId, $date, $code, $dim1, $dim2, $inclusive_amt, $memo (line $line in import file '{$_FILES['imp']['name']}')")); 
              
-              if ((customer_exist($person_id)) && $person_type_id=2)
+              if ((customer_exist($person_id)) && $person_type_id==2)
               {
                   write_customer_trans(ST_BANKPAYMENT, $curEntryId, $person_id, $BranchNo, $date, $reference, -$inclusive_amt);
                   display_notification_centered(_("Added to table 'debtor_trans Debit:' Customer over-payment reimbursed -$inclusive_amt (line $line in import file '{$_FILES['imp']['name']}')"));    
               }
               
-              if ((supplier_exist($person_id)) && $person_type_id=1)
+              if ((supplier_exist($person_id)) && $person_type_id==1)
               {
                   write_supp_trans(ST_BANKPAYMENT, $curEntryId, $person_id, $date, $due_date="", $reference, $supp_reference="", -$inclusive_amt, $amount_tax=0, $discount=0);                  
-                  display_notification_centered(_("Added to table 'supp_trans Debit:' Supplier paid -$inclusive_amt (line $line in import file '{$_FILES['imp']['name']}')"));    
+                  display_notification_centered(_("Added to table 'supp_trans' Debit: Supplier paid -$inclusive_amt (line $line in import file '{$_FILES['imp']['name']}')"));    
               }  
              
          }
