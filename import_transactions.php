@@ -55,7 +55,7 @@ ini_set("display_errors", "on");
 //Ensure that your company has no important information in it as these will be deleted.
 //Warning: Most records will be deleted if '$yes' set to true. Default must stay on false for normal operation.
 //Recommended: Remove this next line after you are happy with testing.
-all_delete($yes=true);
+all_delete($yes=false);
 
 $js = '';
 if ($use_popup_windows) {$js .= get_js_open_window(800, 500);}
@@ -181,7 +181,7 @@ if ((isset($_POST['type'])))
 	  	display_error(_("Error: date '$date' not properly formatted (line $line in import file '{$_FILES['imp']['name']}')"));
 		$error = true;
 	  }
-      //$date = sql2date($date)
+      //$date = sql2date($date);
      if ((is_date_in_fiscalyear($date)) == false) {display_error(_("Error: Date not within company fiscal year. Make sure date is in dd/mm/yyyy format and your csv years are 4 digits long. Check that current fiscal year is active under Setup..Company Setup"));$error=true;}
      // validation for 
                   
@@ -239,8 +239,7 @@ if ((isset($_POST['type'])))
          $errCnt = $errCnt + 1;
       }    //
 // Commit import to database
- if (isset($_POST['trial'])){     
- $trial = $_POST['trial'];}
+ $trial = (isset($_POST['trial']) ? $_POST['trial'] : false);
   
  if ($type == ST_JOURNAL){$typeString = "Journals";}                
  elseif ($type == ST_BANKDEPOSIT){$typeString = "Deposits";}
@@ -248,16 +247,20 @@ if ((isset($_POST['type'])))
  
  display_notification("$trial"); 
 
- if (($errCnt==0) && ($trial == false))
- {if ($entryCount > 0){commit_transaction();display_notification_centered(_("$entryCount $typeString have been imported."));}
-  else display_error(_("Import file contained no $typeString."));}
-  
-if (($errCnt==0) && ($trial == true))
- {display_notification_centered(_("$entryCount $typeString would have been successful if imported. Uncheck Trial check before importing."));}
-if (($errCnt>0) && ($trial == true) && $displayed_at_least_once)
- {display_notification_centered(_("$errCnt error(s) detected. Correct before importing."));}
- if (($errCnt>0) && ($trial == true) && $displayed_at_least_once)
- {display_notification_centered(_("$errCnt error(s) detected. Correct before importing."));}   
+ if (!$trial) {
+    if ($errCnt == 0) {
+        if ($entryCount > 0) {
+		    commit_transaction();
+		    display_notification_centered(_("$entryCount $typeString have been imported."));
+	    } else display_error(_("Import file contained no $typeString."));
+    }
+ } else {
+	if ($errCnt==0) {
+        if ($entryCount > 0) display_notification_centered(_("$entryCount $typeString would have been successful if imported. Uncheck Trial check before importing."));
+        else display_notification_centered(_("Import file contained no $typeString. Populate file with data before importing."));
+	}
+	if (($errCnt>0) && $displayed_at_least_once) display_notification_centered(_("$errCnt error(s) detected. Correct before importing."));
+ }
  $errCnt =0;
    
   }// if (!$fp)
