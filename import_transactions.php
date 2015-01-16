@@ -158,7 +158,7 @@ if ((isset($_POST['type'])))
          
          if ($type == 0)
          {
-             list($error,$input_id, $curEntryId,$total_debit_positive,$total_credit_negative)=journal_id($prev_date,$date,$amt, $input_id, $total_debit_positive, $total_credit_negative, $line);
+             list($error,$input_id, $total_debit_positive, $total_credit_negative)=journal_id($prev_date,$date,$amt, $input_id=0, $total_debit_positive, $total_credit_negative, $line);
          }
                       
          list($error,$memo)=check_customer_supplier($code_id,$person_id,$person_type_id,$line,$memo,$error);
@@ -225,7 +225,7 @@ if ((isset($_POST['type'])))
      $error = false;
      $prev_ref = $reference;
      $prev_date = $date;
-     $curEntryId = $curEntryId + 1;   
+     if ($type <> 0) {$curEntryId = $curEntryId + 1;} else {$curEntryId = $curEntryId + $input_id;}
     }//while
     $displayed_at_least_once = display_entries($type, $entry);
     end_row();
