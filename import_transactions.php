@@ -245,7 +245,7 @@ if ((isset($_POST['type'])))
  elseif ($type == ST_BANKDEPOSIT){$typeString = "Deposits";}
  elseif ($type == ST_BANKPAYMENT){$typeString = "Payments";}
  
- display_notification("$trial"); 
+ 
 
  if (!$trial) {
     if ($errCnt == 0) {
