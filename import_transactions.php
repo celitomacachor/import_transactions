@@ -225,7 +225,8 @@ if ((isset($_POST['type'])))
      $error = false;
      $prev_ref = $reference;
      $prev_date = $date;
-     if ($type <> 0) {$curEntryId = $curEntryId + 1;} else {$curEntryId = $curEntryId + $input_id;}
+     //if ($type <> 0) {$curEntryId = $curEntryId + 1;} else {$curEntryId = $curEntryId + $input_id;} replaced with
+     $curEntryId += (($type <> 0) ? 1 : $input_id); 
     }//while
     $displayed_at_least_once = display_entries($type, $entry);
     end_row();
