@@ -13,6 +13,7 @@
 //7. Additional lookup tools for looking up customer, supplier, company setup information eg. fiscal year, and other tools that users might find useful for their import.
 //8. Inclusion of csv examples using the en_GB account structure under folder templates.
 //9. See the Spreadsheet_headers file for csv formats.
+//10. Import Sales Orders/Invoices
 
 //Module contents
 //./Import_transactions/import_transactions.php
@@ -21,6 +22,9 @@
 //./Import_transactions/template/payment_en_GB.csv                                    .......for non-bank statement payment processing...payment.csv
 //./Import_transactions/template/journal_en_GB.csv                                    .......for non-bank journal processing.............journal.csv
 //./Import_transactions/includes/import_transactions.inc                              .......include file containing functions used here.
+//./Import_transactions/includes/import_sales_order_entry.inc                         .......for importing sales orders/invoices
+//./Import_transactions/includes/import_sales_cart_class.inc                         
+//./Import_transactions/includes/import_sales_order_ui.inc
 
 $page_security = 'SA_CSVTRANSACTIONS';
 $path_to_root="../..";
