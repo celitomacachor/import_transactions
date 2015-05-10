@@ -62,7 +62,7 @@ ini_set("display_errors", "on");
 //Ensure that your company has no important information in it as these will be deleted by means of all_delete function under import_transactions.inc 
 //Warning: Most records will be deleted if '$yes' set to true. Default must stay on false for normal operation.
 //Recommended: Remove this next line after you are happy with testing.
-all_delete($yes=true);
+all_delete($yes=false);
 
 $js = '';
 if ($use_popup_windows) {$js .= get_js_open_window(800, 500);}
