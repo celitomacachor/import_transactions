@@ -43,6 +43,9 @@ include_once($path_to_root . "/includes/data_checks.inc");
 include_once($path_to_root . "/admin/db/company_db.inc"); //default control accounts
 include_once($path_to_root . "/includes/ui/ui_controls.inc");
 include_once($path_to_root . "/modules/import_transactions/includes/import_transactions.inc"); //functions used
+include_once($path_to_root . "/modules/import_transactions/includes/import_sales_order_entry.inc"); // adaptation of sales_order_entry.php
+include_once($path_to_root . "/modules/import_transactions/includes/import_sales_cart_class.inc"); // adaptation of cart class
+include_once($path_to_root . "/modules/import_transactions/includes/import_sales_order_ui.inc"); // adaptation of sales_order_ui.inc
 //include_once($path_to_root . "/gl/includes/ui/gl_journal_ui.inc"); display_import_items adapted from display_ gl_items
 
 add_access_extensions();
@@ -52,14 +55,14 @@ error_reporting(E_ALL);
 ini_set("display_errors", "on");
 
 //Set '$yes' to true if you are testing this module and you do not want to manually(phpmyadmin) delete previous test run records before each test run
-//Ensure that your company has no important information in it as these will be deleted.
+//Ensure that your company has no important information in it as these will be deleted by means of all_delete function under import_transactions.inc 
 //Warning: Most records will be deleted if '$yes' set to true. Default must stay on false for normal operation.
 //Recommended: Remove this next line after you are happy with testing.
-all_delete($yes=false);
+all_delete($yes=true);
 
 $js = '';
 if ($use_popup_windows) {$js .= get_js_open_window(800, 500);}
-$help_context = "Import Journals  / Deposits / Payments / Statements  <a href='spreadsheet_headers.html'>Help: Formats</a>"; 
+$help_context = "Import General Journals  / Deposits / Payments / Bank Statements / Sales Orders / Sales Invoices  <a href='spreadsheet_headers.html'>Help: Formats</a>"; 
 page(_($help_context), false, false, "", $js);
 
 global $Refs;
@@ -103,57 +106,118 @@ if ((isset($_POST['type'])))
      $trial=false;
      $description = "";
      $i=0;
+     $docline=1;
+     $doc_num=0;
+     $firstlinecopied=false;
+     $no=0;
      $total_debit_positive=0;
      $total_credit_negative=0;
      $input_id=1;
      $skippedheader = false;
-     $prev_ref = null;
+     $prev_ref = 9999;
      $prev_date = null;
      $bank_desc = "";
      $ignore = "";
      $debitsEqualcredits = 1;
+     check_db_has_stock_items(_("There are no inventory items defined in the system."));
+     check_db_has_customer_branches(_("There are no customers, or there are no customers with branches. Please define customers and customer branches."));   
      while ($data = fgetcsv($fp, 4096, $sep))
      {
        if (($line++ == 0) && ($skippedheader == false))
            {display_notification_centered(_("Skipped header. (line $line in import file '{$_FILES['imp']['name']}')"));$skippedheader = true;continue;}
             display_notification_centered(" --------------------------------------------------------------------------------------------Line $line ------------------------------------------------------------------------------------------"); 
-       
+            
        if ($type == 0) // if type is a journal
         {       
          list($reference, $date, $memo, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id) = $data;
          $memo = $memo ." Date: ".$date." Reference: ".$reference;
         }
-        else
-        {            
-            if  (($type == ST_BANKPAYMENT) && ($stateformat!=null))
+        
+                    
+       if  (($type == ST_BANKPAYMENT) && ($stateformat!=null))
            //All amounts to the right of amt are ignored since only considering payments which are to the left of deposits on a bank statement.     
-           {
+       {
                list($reference, $date, $memo, $amt, $ignore, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id,$BranchNo) = $data;
-               if ((($ignore == "")||($ignore == null)) && ($amt > 0.01 )){} else 
+               display_notification_centered("You are here payment");
+               if ((($ignore == "")||($ignore == null) || empty($ignore)) && ($amt > 0.01 )){} else 
                  {
                    display_notification_centered(_("Ignoring deposit. Use same csv under deposit processing. (line $line in import file '{$_FILES['imp']['name']}')")); 
                    $error = false;
                    $prev_ref = $reference;
                    continue;                  
                  } 
-           }    
-           if (($type == ST_BANKDEPOSIT) && ($stateformat!=null))
-           {
+       }
+       
+      if (($type == ST_BANKDEPOSIT) && ($stateformat!=null))
+      {
            //All amounts to the left of amt are ignored since only considering deposits which are to the left of payments on a bank statement.     
                list($reference, $date, $memo, $ignore, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id,$BranchNo) = $data;
-               if ((($ignore == "")||($ignore == null)) && ($amt > 0.01 )){} else 
+               if ((($ignore == "")||($ignore == null)|| empty($ignore) ) && ($amt > 0.01 )){} else 
                    {
                     display_notification_centered(_("Ignoring payment. Use same csv under payment processing.(line $line in import file '{$_FILES['imp']['name']}')"));  
                     $error = false;
                     $prev_ref = $reference;
                     continue;
                    } 
-           }
-           if ((($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT)) && ($stateformat==null))
-           list($reference, $date, $memo, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id, $BranchNo) = $data;
+       }
+       
+       if ((($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT)) && ($stateformat==null))
+       list($reference, $date, $memo, $amt, $code_id, $taxtype, $dim1_ref, $dim2_ref,$person_type_id,$person_id, $BranchNo) = $data;
            
-        }
-         if ($prev_ref <> $reference) {     
+       if (($type == ST_SALESORDER) || ($type == ST_SALESINVOICE))
+           {
+            list($customer_id, $branchNo, $reference, $date, $payment_id, $sales_type_name, $dimension_id, $dimension2_id, $item_code, $item_description, $quantity, $unit, $price, $discountpercentage, $freightcost, $delfrom, $deldate, $delto, $deladdress, $contactphone, $email, $custref, $shipvia, $comments, $exrate) = $data;
+            display_notification_centered(_("Processing line $line ($customer_id, $branchNo, $reference, $date, $payment_id, $sales_type_name, $dimension_id, $dimension2_id, $item_code, $item_description, $quantity, $unit, $price, $discountpercentage, $freightcost, $delfrom, $deldate, $delto, $deladdress, $contactphone, $email, $custref, $shipvia, $comments, $exrate) in import file '{$_FILES['imp']['name']}')"));
+            if (!customer_exist($customer_id)){display_notification("Customer does not exist in the database"); $error=true;}
+            if (($prev_ref <> $reference)) // reference has changed so new invoice with new lineitem(s) 
+            {
+                if ($firstlinecopied == true) // if the reference has changed for line items write the preference reference based document to the cart
+                {
+                    $_SESSION['Items']->write(0); //reset the cart for the next set of line items for each reference document.
+                    $_SESSION['Items']->clear_items();
+                    unset($_SESSION['Items']->line_items);
+                    unset($_SESSION['Items']);
+                    $firstlinecopied = false;
+                }
+                $docline = 1; //the reference has changed so this will be the first line item.
+                $doc_num++;
+                $_SESSION['Items'] = new import_sales_cart($type, 0, false); 
+                $_SESSION['Items']->document_date = $date;
+                $_SESSION['Items']->order_no = $reference; //order_no is the source document's original 
+                $com = get_customer_details_to_order($_SESSION['Items'], $customer_id, $branchNo);
+                display_notification_centered($com);
+                if ($com <> "")
+                {
+                     display_notification_centered("Error");
+                     $error=true;
+                }
+                copy_to_cart($customer_id, $branchNo, $sales_type_name, $reference, $date, $payment_id, $dimension_id, $dimension2_id, $freightcost=0, $delfrom, $deldate, $delto, $deladdress, $contactphone, $email, $custref, $shipvia, $comments,$exrate=null);
+                $firstlinecopied = true;
+            }
+            if ($prev_ref == $reference)  
+            {    
+                $docline=$docline+1; 
+                $com = get_customer_details_to_order($_SESSION['Items'], $customer_id, $branchNo);
+                display_notification_centered($com);
+                if ($com <> "")
+                {
+                    display_notification_centered("Error");
+                    $error=true;
+                }
+                copy_to_cart($customer_id, $branchNo, $sales_type_name, $reference, $date, $payment_id, $dimension_id, $dimension2_id, $freightcost=0, $delfrom, $deldate, $delto, $deladdress, $contactphone, $email, $custref, $shipvia, $comments,$exrate=null);
+                
+            }
+            import_add_to_order($_SESSION['Items'], $item_code, $quantity, $price, $discountpercentage, $item_description);
+            $_SESSION['Items']->cust_ref = $reference;
+            if ((!check_import_item_data($line_no=$docline, $item_code, $item_description, $quantity, $unit, $price, $discountpercentage)) ||
+             (!can_process($line, $customer_id, $branchNo, $reference, $date, $dimension_id, $dimension2_id, $freightcost=0, $delfrom, $deldate, $delto, $deladdress, $contactphone, $email, $custref, $shipvia, $comments,$exrate)))
+            {
+                display_notification_centered("Error");
+                $error=true;}
+               
+         }
+             
+         if (($prev_ref <> $reference) && ($type < 4)) {     
          init_entry_part_2($entry, $date, $reference);}
          
          if ($type == 0)
@@ -161,11 +225,17 @@ if ((isset($_POST['type'])))
              list($error,$input_id, $total_debit_positive, $total_credit_negative)=journal_id($prev_date,$date,$amt, $input_id=0, $total_debit_positive, $total_credit_negative, $line);
          }
                       
-         list($error,$memo)=check_customer_supplier($code_id,$person_id,$person_type_id,$line,$memo,$error);
-         $dim1 = get_dimension_id_from_dimref($dim1_ref);          
-         if ($dim1_ref != '' && $dim1 == null) {display_error(_("Error: Could not find dimension with dimension reference '$dim1_ref' (line $line in import file '{$_FILES['imp']['name']}')"));$error = true;}
-         $dim2 = get_dimension_id_from_dimref($dim2_ref);
-         if ($dim2_ref != '' && $dim2 == null) {display_error(_("Error: Could not find dimension with dimension reference '$dim2_ref' (line $line in import file '{$_FILES['imp']['name']}')"));$error = true;}
+        if (($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT) || ($type == ST_JOURNAL))
+        {
+            list($error,$memo)=check_customer_supplier($code_id,$person_id,$person_type_id,$line,$memo,$error);
+            if (check_code_id($code_id)){}else{display_notification_centered("Error: Account code $code_id does not exist");$error = true;}
+            $dim1 = get_dimension_id_from_dimref($dim1_ref);          
+            if ($dim1_ref != '' && $dim1 == null) {display_error(_("Error: Could not find dimension with dimension reference '$dim1_ref' (line $line in import file '{$_FILES['imp']['name']}')"));$error = true;}
+            $dim2 = get_dimension_id_from_dimref($dim2_ref);
+            if ($dim2_ref != '' && $dim2 == null) {display_error(_("Error: Could not find dimension with dimension reference '$dim2_ref' (line $line in import file '{$_FILES['imp']['name']}')"));$error = true;}
+        } 
+         
+         
          if ($reference == '' ){display_error(_("$line does not have a reference. (line $line in import file '{$_FILES['imp']['name']}')"));$error = true;}
          if (($Refs->exists($type, $reference)) && ($reference!=$prev_ref)){
           display_error(_("Error: Reference from table 'refs': '$reference' is already in use. (line $line in import file '{$_FILES['imp']['name']}')"));$error = true;}   
@@ -174,8 +244,11 @@ if ((isset($_POST['type'])))
            $Refs->save($type,$curEntryId,$reference);
            save_next_reference($type, $reference);
          }      
-          
-      $description = get_gl_account_name($code_id);
+      
+         
+      if (($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT) || ($type == ST_JOURNAL))
+      {$description = get_gl_account_name($code_id);;}
+       
       if (is_date($date)==false)
           {
 	  	display_error(_("Error: date '$date' not properly formatted (line $line in import file '{$_FILES['imp']['name']}')"));
@@ -185,10 +258,13 @@ if ((isset($_POST['type'])))
      if ((is_date_in_fiscalyear($date)) == false) {display_error(_("Error: Date not within company fiscal year. Make sure date is in dd/mm/yyyy format and your csv years are 4 digits long. Check that current fiscal year is active under Setup..Company Setup"));$error=true;}
      // validation for 
                   
-     if (($type == 1) || ($type ==2)) {$bankdesc = get_gl_account_name($bank_account_gl_code);} 
-      
-      
-      $i=journal_display($i, $type, $taxtype, $amt, $entry, $code_id, $dim1, $dim2, $memo, $description, $bank_account_gl_code, $bank_desc);
+    if (($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT)) {$bankdesc = get_gl_account_name($bank_account_gl_code);} 
+          
+    if (($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT) || ($type == ST_JOURNAL))
+     {   
+       $i=journal_display($i, $type, $taxtype, $amt, $entry, $code_id, $dim1, $dim2, $memo, $description, $bank_account_gl_code, $bank_desc);
+     } 
+     
       if (!$error)
      {
        if (($type == ST_JOURNAL))
@@ -228,23 +304,41 @@ if ((isset($_POST['type'])))
      //if ($type <> 0) {$curEntryId = $curEntryId + 1;} else {$curEntryId = $curEntryId + $input_id;} replaced with
      $curEntryId += (($type <> 0) ? 1 : $input_id); 
     }//while
-    $displayed_at_least_once = display_entries($type, $entry);
-    end_row();
-    end_table(1); 
-    div_end();
-     
- 
- if ($displayed_at_least_once == false) //there has been no occurance of debits equaling credits - at least one journal not properly balanced
-      {
-         display_notification_centered(_("Error: Debits do not equal credits.")); 
-         $errCnt = $errCnt + 1;
-      }    //
+    
+    if (($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT) || ($type == ST_JOURNAL))
+    {
+        $displayed_at_least_once = display_entries($type, $entry);
+        end_row();
+        end_table(1); 
+        div_end();
+        if ($displayed_at_least_once == false) //there has been no occurance of debits equaling credits - at least one journal not properly balanced
+        {
+            display_notification_centered(_("Error: Debits do not equal credits.")); 
+            $errCnt = $errCnt + 1;
+        } 
+    }
+    
+    if (($type == ST_SALESORDER) || ($type == ST_SALESINVOICE))
+    {
+               if (($firstlinecopied == true) && ($prev_ref == $reference)) //for the last line item in a csv 
+                {
+                    $_SESSION['Items']->write(0);                   
+                    $_SESSION['Items']->clear_items();
+                    unset($_SESSION['Items']->line_items);
+                    unset($_SESSION['Items']);
+                    $firstlinecopied = false;
+                }              
+                
+    }
 // Commit import to database
  $trial = (isset($_POST['trial']) ? $_POST['trial'] : false);
   
- if ($type == ST_JOURNAL){$typeString = "Journals";}                
+  
+ if ($type == ST_JOURNAL){$typeString = "General Journals";}                
  elseif ($type == ST_BANKDEPOSIT){$typeString = "Deposits";}
  elseif ($type == ST_BANKPAYMENT){$typeString = "Payments";}
+ elseif ($type == ST_SALESORDER){$typeString = "Sales Order csv lines / $doc_num order(s)";}
+ elseif ($type == ST_SALESINVOICE){$typeString = "Sales Invoices csv lines / $doc_num invoice(s)";}
  
  
 
@@ -277,9 +371,12 @@ div_start('_main_table');
 initialize_controls();
 start_table(TABLESTYLE2,"width=95%");//inner table
 $type=show_table_section_import_settings();
-show_table_section_control_accounts();
+if (($type == ST_JOURNAL) || ($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT))
+{  
+  show_table_section_control_accounts();
+}  
 show_table_section_display($type);
-if ((($type != ST_JOURNAL)))
+if ((($type == ST_BANKDEPOSIT) || ($type == ST_BANKPAYMENT)))
 {
     $stateformat = show_table_section_bankstatement_checkbox();
 }
@@ -291,3 +388,4 @@ submit_center('import', "Process",$echo=true, $title=false, $async=true, $icon=I
 end_form();
 end_page();
 ?>
+
