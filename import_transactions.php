@@ -118,7 +118,7 @@ if ((isset($_POST['type'])))
      $total_credit_negative=0;
      $input_id=1;
      $skippedheader = false;
-     $prev_ref = 9999;
+     $prev_ref = -1;
      $prev_date = null;
      $bank_desc = "";
      $ignore = "";
