@@ -303,7 +303,7 @@ function check_code_id ($code)
 
 function check_customer_supplier($code_id,$person_id,$person_type_id,$line,$memo,$error)
 {
-      if ($person_id != null) 
+      if (!empty($person_id)) 
      {
       //check that debtor or supplier exist
       if (($code_id==$_POST['debtors_act']) && ($person_type_id==2) && (customer_exist($person_id)==false)){display_notification_centered(_("Error: Customer does not exist. (line $line in import file '{$_FILES['imp']['name']}') "));$error=true;} 
